@@ -1,0 +1,431 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Shape Drawing Canvas - AI-Powered Drawing Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'ai-mode': '#10B981',
+                        'manual-mode': '#2563EB',
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .canvas-area { background-image: radial-gradient(circle, #e5e7eb 1px, transparent 1px); background-size: 20px 20px; }
+        .tool-active { background-color: #2563EB; color: white; }
+        .ai-active { background-color: #10B981; color: white; }
+        .shape-element { cursor: move; }
+        .voice-recording { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-slate-50 text-gray-700 h-screen overflow-hidden">
+    <!-- @COMPONENT: MainApplication [full application container] -->
+    <div class="flex h-screen">
+        <!-- @COMPONENT: ToolSidebar [left tool palette] -->
+        <div class="w-16 bg-white border-r border-gray-200 flex flex-col items-center py-4 space-y-3">
+            <!-- Mode Toggle -->
+            <div class="mb-4">
+                <div class="bg-gray-100 rounded-lg p-1 flex flex-col space-y-1" data-implementation="Mode toggle should switch between manual and AI control">
+                    <button id="manual-mode" class="tool-active w-12 h-8 rounded text-xs font-medium transition-all" data-event="click:setManualMode">
+                        <svg class="w-4 h-4 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                        </svg>
+                    </button>
+                    <button id="ai-mode" class="w-12 h-8 rounded text-xs font-medium transition-all bg-gray-200 text-gray-600" data-event="click:setAIMode">
+                        <svg class="w-4 h-4 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Drawing Tools -->
+            <div class="space-y-2">
+                <button class="tool-active w-12 h-12 rounded-lg flex items-center justify-center transition-all" data-event="click:selectTool" data-tool="select" title="Select Tool">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+                
+                <button class="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all" data-event="click:selectTool" data-tool="rectangle" title="Rectangle Tool">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    </svg>
+                </button>
+                
+                <button class="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all" data-event="click:selectTool" data-tool="circle" title="Circle Tool">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/>
+                    </svg>
+                </button>
+                
+                <button class="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all" data-event="click:selectTool" data-tool="line" title="Line Tool">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                </button>
+                
+                <div class="w-full h-px bg-gray-200 my-2"></div>
+                
+                <button class="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all" data-event="click:deleteSelected" title="Delete Selected">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z M4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 102 0v-1a1 1 0 10-2 0v1zm4 0a1 1 0 102 0v-1a1 1 0 10-2 0v1z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+                
+                <button class="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all" data-event="click:clearCanvas" title="Clear Canvas">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Color Palette -->
+            <div class="mt-4 space-y-2">
+                <div class="text-xs text-gray-500 text-center">Colors</div>
+                <div class="flex flex-col space-y-1">
+                    <button class="w-8 h-8 rounded bg-black border-2 border-white shadow" data-event="click:setColor" data-color="#000000"></button>
+                    <button class="w-8 h-8 rounded bg-red-500 border-2 border-gray-200" data-event="click:setColor" data-color="#EF4444"></button>
+                    <button class="w-8 h-8 rounded bg-blue-500 border-2 border-gray-200" data-event="click:setColor" data-color="#3B82F6"></button>
+                    <button class="w-8 h-8 rounded bg-green-500 border-2 border-gray-200" data-event="click:setColor" data-color="#10B981"></button>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: ToolSidebar -->
+
+        <!-- @COMPONENT: CanvasWorkspace [main drawing area] -->
+        <div class="flex-1 flex flex-col bg-gray-50">
+            <!-- Top Toolbar -->
+            <div class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-lg font-semibold text-gray-900">Smart Shape Canvas</h1>
+                    <div class="flex items-center space-x-2">
+                        <div id="mode-indicator" class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
+                            Manual Mode
+                        </div>
+                        <div id="connection-status" class="flex items-center space-x-1 text-sm text-green-600">
+                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span>Connected</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <span id="shape-count" class="text-sm text-gray-500" data-bind="shapes.length">3 shapes</span>
+                    <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-all" data-event="click:undoAction">
+                        Undo
+                    </button>
+                    <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-all" data-event="click:redoAction">
+                        Redo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="flex-1 p-6">
+                <div class="h-full bg-white rounded-lg shadow-sm border border-gray-200 relative overflow-hidden canvas-area">
+                    <canvas id="drawing-canvas" class="absolute inset-0 w-full h-full cursor-crosshair" width="800" height="600" data-implementation="Canvas API for drawing shapes and interactions">
+                    </canvas>
+                    
+                    <!-- Demo Shapes (would be rendered via Canvas API in real implementation) -->
+                    <div class="absolute top-20 left-20 w-24 h-16 bg-blue-500 rounded shape-element opacity-80 flex items-center justify-center text-white text-xs" data-mock="true" data-shape-id="rect1">
+                        Rectangle
+                    </div>
+                    <div class="absolute top-32 left-60 w-20 h-20 bg-red-500 rounded-full shape-element opacity-80 flex items-center justify-center text-white text-xs" data-mock="true" data-shape-id="circle1">
+                        Circle
+                    </div>
+                    <div class="absolute top-24 left-36 w-20 h-1 bg-green-500 shape-element" data-mock="true" data-shape-id="line1" style="transform: rotate(45deg);"></div>
+                    
+                    <!-- AI Action Feedback Overlay -->
+                    <div id="ai-feedback" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-lg shadow-lg hidden animate-pulse">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-sm font-medium">AI drawing three circles...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: CanvasWorkspace -->
+
+        <!-- @COMPONENT: AIControlPanel [right AI interface] -->
+        <div class="w-80 bg-white border-l border-gray-200 flex flex-col">
+            <!-- AI Panel Header -->
+            <div class="h-14 border-b border-gray-200 flex items-center justify-between px-4">
+                <h2 class="font-semibold text-gray-900">AI Assistant</h2>
+                <div class="flex items-center space-x-2">
+                    <button id="voice-toggle" class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-all" data-event="click:toggleVoice" title="Voice Input">
+                        <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                    <button class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-all" data-event="click:clearChat" title="Clear Chat">
+                        <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Messages Area -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages" data-implementation="WebSocket connection for real-time AI communication">
+                <!-- @MAP: messages.map(message => ( -->
+                <div class="flex justify-end">
+                    <div class="bg-blue-500 text-white rounded-lg rounded-br-none px-4 py-2 max-w-xs" data-mock="true">
+                        <p class="text-sm">Draw three circles of radius 20 in a row</p>
+                        <span class="text-xs opacity-75">2:34 PM</span>
+                    </div>
+                </div>
+                
+                <div class="flex justify-start">
+                    <div class="bg-gray-100 text-gray-800 rounded-lg rounded-bl-none px-4 py-2 max-w-xs" data-mock="true">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <svg class="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-xs font-medium text-emerald-600">AI Assistant</span>
+                        </div>
+                        <p class="text-sm">I'll draw three circles with radius 20 pixels in a horizontal row. Drawing now...</p>
+                        <span class="text-xs text-gray-500">2:34 PM</span>
+                    </div>
+                </div>
+                
+                <div class="flex justify-start">
+                    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg rounded-bl-none px-4 py-2 max-w-xs" data-mock="true">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <svg class="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-xs font-medium text-emerald-600">Completed</span>
+                        </div>
+                        <p class="text-sm">✓ Successfully drew 3 circles in a row at coordinates (100, 150), (160, 150), and (220, 150)</p>
+                        <span class="text-xs text-emerald-600">2:34 PM</span>
+                    </div>
+                </div>
+                <!-- @END_MAP )) -->
+            </div>
+
+            <!-- Voice Input Status -->
+            <div id="voice-status" class="hidden bg-emerald-50 border-t border-emerald-200 p-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-3 h-3 bg-emerald-500 rounded-full voice-recording"></div>
+                    <span class="text-sm text-emerald-700 font-medium">Listening...</span>
+                    <button class="ml-auto p-1 text-emerald-600 hover:text-emerald-800" data-event="click:stopVoice">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Command Input -->
+            <div class="border-t border-gray-200 p-4">
+                <div class="flex space-x-2">
+                    <input 
+                        type="text" 
+                        placeholder="Type your drawing command..."
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        id="command-input"
+                        data-bind="currentCommand"
+                        data-event="keypress:handleCommandInput"
+                    />
+                    <button 
+                        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all flex items-center justify-center"
+                        data-event="click:sendCommand"
+                        data-implementation="Should send command to Groq GPT-OSS 120B for processing"
+                    >
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Command Suggestions -->
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs transition-all" data-event="click:useCommand" data-command="Draw a red square">
+                        Draw a red square
+                    </button>
+                    <button class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs transition-all" data-event="click:useCommand" data-command="Delete all shapes">
+                        Delete all shapes
+                    </button>
+                    <button class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs transition-all" data-event="click:useCommand" data-command="Create a house outline">
+                        Create a house outline
+                    </button>
+                </div>
+            </div>
+
+            <!-- AI Status Indicator -->
+            <div class="border-t border-gray-200 px-4 py-3 bg-gray-50">
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Groq GPT-OSS 120B Ready</span>
+                    </div>
+                    <span>~500 t/s</span>
+                </div>
+                <div class="flex items-center justify-between text-xs text-gray-500 mt-1">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Whisper Large v3 Turbo</span>
+                    </div>
+                    <span>216x real-time</span>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: AIControlPanel -->
+    </div>
+    <!-- @END_COMPONENT: MainApplication -->
+
+    <script>
+        // TODO: Implement WebSocket connection for real-time AI communication
+        // TODO: Integrate with Groq API for GPT-OSS 120B and Whisper Large v3 Turbo
+        // TODO: Implement Canvas API for actual shape drawing and manipulation
+        // TODO: Add state management for dual-mode functionality
+        
+        (function() {
+            // Demo functionality for interactive mockup
+            let currentMode = 'manual';
+            let currentTool = 'select';
+            let isVoiceActive = false;
+            
+            // Mode switching
+            document.getElementById('manual-mode').addEventListener('click', function() {
+                setMode('manual');
+            });
+            
+            document.getElementById('ai-mode').addEventListener('click', function() {
+                setMode('ai');
+            });
+            
+            function setMode(mode) {
+                currentMode = mode;
+                const modeIndicator = document.getElementById('mode-indicator');
+                const manualBtn = document.getElementById('manual-mode');
+                const aiBtn = document.getElementById('ai-mode');
+                
+                if (mode === 'manual') {
+                    modeIndicator.textContent = 'Manual Mode';
+                    modeIndicator.className = 'px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium';
+                    manualBtn.className = 'tool-active w-12 h-8 rounded text-xs font-medium transition-all';
+                    aiBtn.className = 'w-12 h-8 rounded text-xs font-medium transition-all bg-gray-200 text-gray-600';
+                } else {
+                    modeIndicator.textContent = 'AI Mode';
+                    modeIndicator.className = 'px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium';
+                    aiBtn.className = 'ai-active w-12 h-8 rounded text-xs font-medium transition-all';
+                    manualBtn.className = 'w-12 h-8 rounded text-xs font-medium transition-all bg-gray-200 text-gray-600';
+                }
+            }
+            
+            // Voice toggle functionality
+            document.getElementById('voice-toggle').addEventListener('click', function() {
+                isVoiceActive = !isVoiceActive;
+                const voiceStatus = document.getElementById('voice-status');
+                
+                if (isVoiceActive) {
+                    voiceStatus.classList.remove('hidden');
+                    this.classList.add('bg-emerald-100', 'text-emerald-600');
+                    this.classList.remove('bg-gray-100');
+                } else {
+                    voiceStatus.classList.add('hidden');
+                    this.classList.remove('bg-emerald-100', 'text-emerald-600');
+                    this.classList.add('bg-gray-100');
+                }
+            });
+            
+            // Command input handling
+            document.getElementById('command-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendCommand();
+                }
+            });
+            
+            function sendCommand() {
+                const input = document.getElementById('command-input');
+                const command = input.value.trim();
+                
+                if (command) {
+                    // Add user message to chat
+                    addMessage(command, 'user');
+                    
+                    // Clear input
+                    input.value = '';
+                    
+                    // Simulate AI processing
+                    setTimeout(() => {
+                        addMessage(`I'll ${command.toLowerCase()}. Processing your request...`, 'ai');
+                        showAIFeedback(`AI executing: ${command}`);
+                    }, 500);
+                }
+            }
+            
+            function addMessage(text, sender) {
+                const chatMessages = document.getElementById('chat-messages');
+                const messageDiv = document.createElement('div');
+                const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                if (sender === 'user') {
+                    messageDiv.innerHTML = `
+                        <div class="flex justify-end">
+                            <div class="bg-blue-500 text-white rounded-lg rounded-br-none px-4 py-2 max-w-xs">
+                                <p class="text-sm">${text}</p>
+                                <span class="text-xs opacity-75">${time}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="flex justify-start">
+                            <div class="bg-gray-100 text-gray-800 rounded-lg rounded-bl-none px-4 py-2 max-w-xs">
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <svg class="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <span class="text-xs font-medium text-emerald-600">AI Assistant</span>
+                                </div>
+                                <p class="text-sm">${text}</p>
+                                <span class="text-xs text-gray-500">${time}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            function showAIFeedback(message) {
+                const feedback = document.getElementById('ai-feedback');
+                feedback.querySelector('span').textContent = message;
+                feedback.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    feedback.classList.add('hidden');
+                }, 3000);
+            }
+            
+            // Command suggestion handlers
+            document.querySelectorAll('[data-command]').forEach(button => {
+                button.addEventListener('click', function() {
+                    const command = this.getAttribute('data-command');
+                    document.getElementById('command-input').value = command;
+                });
+            });
+            
+        })();
+    </script>
+</body>
+</html>
