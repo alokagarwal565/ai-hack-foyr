@@ -42,7 +42,7 @@ export default function CanvasPage() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-full bg-slate-50">
       <ToolSidebar
         mode={canvasState.mode}
         selectedTool={canvasState.selectedTool}

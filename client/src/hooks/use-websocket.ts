@@ -86,12 +86,12 @@ export function useWebSocket() {
     }
   }, [socket]);
 
-  const sendChatMessage = useCallback((content: string) => {
-    sendMessage({ type: 'chat_message', content });
+  const sendChatMessage = useCallback((content: string, appType: 'canvas' | 'tasks' | 'layout' = 'canvas') => {
+    sendMessage({ type: 'chat_message', content, appType });
   }, [sendMessage]);
 
-  const sendVoiceData = useCallback((audioData: string) => {
-    sendMessage({ type: 'voice_data', data: audioData });
+  const sendVoiceData = useCallback((audioData: string, appType: 'canvas' | 'tasks' | 'layout' = 'canvas') => {
+    sendMessage({ type: 'voice_data', data: audioData, appType });
   }, [sendMessage]);
 
   useEffect(() => {
