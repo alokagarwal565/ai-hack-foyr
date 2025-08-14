@@ -203,11 +203,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         switch (interpretation.action) {
           case 'create_layout':
             if (interpretation.layout) {
-              await storage.createLayout({
+              const newLayout = await storage.createLayout({
                 name: interpretation.layout.name || 'AI Generated Layout',
                 gridConfig: interpretation.layout.gridConfig,
                 blocks: interpretation.layout.blocks || [],
               });
+              // Broadcast layout creation
+              broadcast({ type: 'layout_created', layout: newLayout });
             }
             break;
           case 'add_block':
@@ -218,13 +220,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const targetLayout = layouts[0];
                 
                 if (targetLayout) {
-                  await storage.createBlock({
+                  const newBlock = await storage.createBlock({
                     type: blockData.type,
                     content: blockData.content,
                     position: blockData.position,
                     style: blockData.style || {},
                     layoutId: targetLayout.id,
                   });
+                  // Broadcast block creation
+                  broadcast({ type: 'block_created', block: newBlock });
                 }
               }
             }

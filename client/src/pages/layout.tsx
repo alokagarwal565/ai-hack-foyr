@@ -79,12 +79,12 @@ export default function LayoutPage() {
     setOnVoiceData((audioData: string) => sendVoiceData(audioData, 'layout'));
   }, [sendVoiceData, setOnVoiceData]);
 
-  const { data: layouts = [] } = useQuery({
+  const { data: layouts = [] } = useQuery<Layout[]>({
     queryKey: ['/api/layouts'],
     refetchInterval: 2000,
   });
 
-  const { data: blocks = [] } = useQuery({
+  const { data: blocks = [] } = useQuery<Block[]>({
     queryKey: ['/api/blocks', selectedLayout],
     enabled: !!selectedLayout,
     refetchInterval: 2000,
@@ -113,6 +113,13 @@ export default function LayoutPage() {
     },
   });
 
+  const deleteBlockMutation = useMutation({
+    mutationFn: (id: string) => apiRequest('DELETE', `/api/blocks/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/blocks'] });
+    },
+  });
+
   const handleCreateLayout = () => {
     if (newLayout.name.trim()) {
       createLayoutMutation.mutate({
@@ -126,7 +133,7 @@ export default function LayoutPage() {
     }
   };
 
-  const handleAddBlock = (type: string) => {
+  const handleAddBlock = (type: string, specificPosition?: { col: number; row: number }) => {
     if (!selectedLayout) return;
     
     const defaultContent = {
@@ -136,12 +143,18 @@ export default function LayoutPage() {
       widget: { type: 'chart', config: {} },
     };
 
-    // Find next available position
-    const occupiedPositions = blocks.map((b: Block) => `${b.position.col}-${b.position.row}`);
     let col = 1, row = 1;
-    while (occupiedPositions.includes(`${col}-${row}`)) {
-      col++;
-      if (col > 12) { col = 1; row++; }
+    
+    if (specificPosition) {
+      col = specificPosition.col;
+      row = specificPosition.row;
+    } else {
+      // Find next available position
+      const occupiedPositions = (blocks as Block[]).map((b: Block) => `${b.position.col}-${b.position.row}`);
+      while (occupiedPositions.includes(`${col}-${row}`)) {
+        col++;
+        if (col > 12) { col = 1; row++; }
+      }
     }
 
     createBlockMutation.mutate({
@@ -160,8 +173,19 @@ export default function LayoutPage() {
     }
   };
 
+  const handleBlockClick = (block: Block) => {
+    console.log('Block clicked:', block);
+    // TODO: Implement block editing modal or inline editing
+  };
+
+  const handleDeleteBlock = (blockId: string) => {
+    if (confirm('Are you sure you want to delete this block?')) {
+      deleteBlockMutation.mutate(blockId);
+    }
+  };
+
   const currentLayout = layouts.find((l: Layout) => l.id === selectedLayout);
-  const layoutMessages = messages.filter(msg => msg.appType === 'layout');
+  const layoutMessages = messages.filter((msg: any) => msg.appType === 'layout');
 
   const renderGridPreview = (layout: Layout) => {
     const layoutBlocks = blocks.filter((b: Block) => b.layoutId === layout.id);
@@ -182,17 +206,34 @@ export default function LayoutPage() {
             <div
               key={block.id}
               className={cn(
-                "bg-white border-2 border-dashed border-gray-300 rounded p-2 flex items-center justify-center text-sm transition-all hover:border-blue-400",
+                "bg-white border-2 border-dashed border-gray-300 rounded p-2 flex items-center justify-center text-sm transition-all hover:border-blue-400 cursor-pointer relative group",
                 blockType?.color || 'bg-gray-100'
               )}
               style={{
                 gridColumn: `${block.position.col} / span ${block.position.colSpan || 1}`,
                 gridRow: `${block.position.row} / span ${block.position.rowSpan || 1}`,
               }}
+              onClick={() => handleBlockClick(block)}
             >
               <div className="text-center">
                 <Icon className="w-4 h-4 mx-auto mb-1" />
                 <div className="text-xs">{blockType?.label}</div>
+              </div>
+              
+              {/* Block actions - visible on hover */}
+              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="w-6 h-6 p-0 bg-white shadow-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteBlock(block.id);
+                  }}
+                  title="Delete block"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
               </div>
             </div>
           );
@@ -311,7 +352,7 @@ export default function LayoutPage() {
                   <Card 
                     key={layout.id} 
                     className={cn(
-                      "cursor-pointer transition-all",
+                      "cursor-pointer transition-all group",
                       selectedLayout === layout.id ? "ring-2 ring-blue-500" : "hover:shadow-md"
                     )}
                     onClick={() => setSelectedLayout(layout.id)}
@@ -319,17 +360,32 @@ export default function LayoutPage() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium">{layout.name}</h4>
-                        <Badge variant="outline">
-                          {layout.gridConfig.columns} cols
-                        </Badge>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">
+                            {layout.gridConfig.columns} cols
+                          </Badge>
+                        </div>
                       </div>
                       <div className="text-sm text-gray-600 mb-3">
-                        {blocks.filter((b: Block) => b.layoutId === layout.id).length} blocks
+                        {(blocks as Block[]).filter((b: Block) => b.layoutId === layout.id).length} blocks
                       </div>
                       <div className="grid grid-cols-4 gap-1 bg-gray-100 p-2 rounded">
-                        {Array.from({ length: 8 }, (_, i) => (
-                          <div key={i} className="aspect-square bg-white rounded-sm"></div>
-                        ))}
+                        {Array.from({ length: 8 }, (_, i) => {
+                          const hasBlock = (blocks as Block[]).some((b: Block) => 
+                            b.layoutId === layout.id && 
+                            Math.floor((b.position.col - 1) / 3) === Math.floor(i / 4) &&
+                            Math.floor((b.position.row - 1) / 2) === (i % 4) / 2
+                          );
+                          return (
+                            <div 
+                              key={i} 
+                              className={cn(
+                                "aspect-square rounded-sm",
+                                hasBlock ? "bg-blue-200" : "bg-white"
+                              )}
+                            />
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
@@ -442,7 +498,9 @@ export default function LayoutPage() {
                     >
                       <p>{message.content}</p>
                       <span className="text-xs opacity-75 mt-1 block">
-                        {new Date(message.timestamp).toLocaleTimeString()}
+                        {message.timestamp instanceof Date 
+                          ? message.timestamp.toLocaleTimeString()
+                          : new Date(message.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
                   </div>

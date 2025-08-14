@@ -68,8 +68,9 @@ export function AIControlPanel({
     setInputValue(suggestion);
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (date: Date | string) => {
+    const d = date instanceof Date ? date : new Date(date);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (

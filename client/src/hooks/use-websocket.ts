@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { WebSocketMessage, Shape, ChatMessage } from '@/types/canvas';
 
 export function useWebSocket() {
@@ -7,6 +8,7 @@ export function useWebSocket() {
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const queryClient = useQueryClient();
 
   const connect = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -72,6 +74,26 @@ export function useWebSocket() {
           ...message.message,
           timestamp: new Date(message.message.timestamp)
         }]);
+        break;
+      case 'layout_created':
+        // Invalidate layout queries to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ['/api/layouts'] });
+        break;
+      case 'layout_updated':
+        // Invalidate layout queries to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ['/api/layouts'] });
+        break;
+      case 'block_created':
+        // Invalidate block queries to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ['/api/blocks'] });
+        break;
+      case 'block_updated':
+        // Invalidate block queries to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ['/api/blocks'] });
+        break;
+      case 'block_deleted':
+        // Invalidate block queries to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ['/api/blocks'] });
         break;
       default:
         console.log('Unknown message type:', message.type);
