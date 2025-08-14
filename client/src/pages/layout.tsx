@@ -85,10 +85,19 @@ export default function LayoutPage() {
   });
 
   const { data: blocks = [] } = useQuery<Block[]>({
-    queryKey: ['/api/blocks', selectedLayout],
+    queryKey: ['/api/blocks', { layoutId: selectedLayout }],
+    queryFn: () => selectedLayout ? 
+      fetch(`/api/blocks?layoutId=${selectedLayout}`).then(res => res.json()) : 
+      Promise.resolve([]),
     enabled: !!selectedLayout,
     refetchInterval: 2000,
   });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Selected layout:', selectedLayout);
+    console.log('Blocks data:', blocks);
+  }, [selectedLayout, blocks]);
 
   const createLayoutMutation = useMutation({
     mutationFn: (layout: any) => apiRequest('POST', '/api/layouts', layout),
@@ -188,7 +197,7 @@ export default function LayoutPage() {
   const layoutMessages = messages.filter((msg: any) => msg.appType === 'layout');
 
   const renderGridPreview = (layout: Layout) => {
-    const layoutBlocks = blocks.filter((b: Block) => b.layoutId === layout.id);
+    const layoutBlocks = (blocks as Block[]).filter((b: Block) => b.layoutId === layout.id);
     
     return (
       <div 
@@ -410,7 +419,7 @@ export default function LayoutPage() {
                   <div>
                     <h2 className="text-lg font-semibold">{currentLayout.name}</h2>
                     <p className="text-sm text-gray-600">
-                      {currentLayout.gridConfig.columns} columns • {blocks.length} blocks
+                      {currentLayout.gridConfig.columns} columns • {(blocks as Block[]).filter((b: Block) => b.layoutId === currentLayout.id).length} blocks
                     </p>
                   </div>
                   

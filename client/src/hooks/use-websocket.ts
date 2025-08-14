@@ -95,6 +95,15 @@ export function useWebSocket() {
         // Invalidate block queries to refresh the UI
         queryClient.invalidateQueries({ queryKey: ['/api/blocks'] });
         break;
+      case 'layout_deleted':
+        queryClient.invalidateQueries({ queryKey: ['/api/layouts'] });
+        break;
+      case 'layouts_updated':
+        queryClient.invalidateQueries({ queryKey: ['/api/layouts'] });
+        break;
+      case 'command_executed':
+        // Handle command execution updates
+        break;
       default:
         console.log('Unknown message type:', message.type);
     }

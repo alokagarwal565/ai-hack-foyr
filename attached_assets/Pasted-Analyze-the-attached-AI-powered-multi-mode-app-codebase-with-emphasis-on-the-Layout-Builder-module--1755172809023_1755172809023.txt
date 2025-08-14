@@ -1,0 +1,46 @@
+Analyze the attached AI-powered multi-mode app codebase with emphasis on the Layout Builder module.
+The project uses React + TypeScript frontend, Express backend, WebSocket real-time sync, and Groq/OpenRouter AI for interpreting commands.
+
+Current Layout Builder Status:
+
+AI Mode: The AI can now successfully create a new layout (name, columns, gap).
+
+Problem: When opening a created layout, the "Add Blocks" toolbar is visible (Text Block, Image Block, Container, Widget), but none of these controls are functional. Clicking them does nothing — no new blocks are added to the layout grid.
+
+Manual mode is also affected: even if a user clicks the "Add Block" buttons, no blocks appear.
+
+No linkage exists between the add block buttons (or AI-generated block creation commands) and the actual state update/rendering logic in the layout grid.
+
+Required Fixes:
+
+Enable Block Addition:
+
+Wire up Text Block, Image Block, Container, and Widget buttons to create their respective block components inside the currently active layout grid.
+
+Ensure new blocks render immediately in the UI with default placeholder content (e.g., "Click to edit text").
+
+AI Integration for Blocks:
+
+Extend AI Mode so AI-generated commands like “Add two image blocks” trigger the same block-adding functions as manual clicks.
+
+Interactivity:
+
+Make blocks draggable, resizable, and removable, consistent with the project’s other interactive UI modules.
+
+Persistence & Sync:
+
+Ensure changes persist in backend or real-time sync layer so other sessions see updates instantly.
+
+Consistency:
+
+Use existing hook-based state management, shadcn/ui components, and follow architecture from Smart Canvas and Task Manager modules where AI actions already map to UI changes.
+
+Your tasks as the coding AI agent:
+
+Trace the Layout Builder’s "Add Blocks" UI code and identify missing event handlers.
+
+Implement functions to insert new blocks into the layout’s state tree and render them dynamically.
+
+Connect AI command output to these block creation functions.
+
+Test both AI Mode and Manual Mode to confirm block addition, editing, and removal work flawlessly.
