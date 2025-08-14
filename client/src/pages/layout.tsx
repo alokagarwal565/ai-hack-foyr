@@ -69,7 +69,8 @@ export default function LayoutPage() {
   const [newLayout, setNewLayout] = useState({ name: '', columns: 12, gap: 16 });
   const [chatInput, setChatInput] = useState('');
   const [showNewLayoutDialog, setShowNewLayoutDialog] = useState(false);
-  const [draggedBlock, setDraggedBlock] = useState<string | null>(null);
+  const [draggedBlock, setDraggedBlock] = useState<Block | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<{col: number, row: number} | null>(null);
   
   const queryClient = useQueryClient();
   const { connected, messages, sendChatMessage, sendVoiceData } = useWebSocket();
@@ -193,19 +194,90 @@ export default function LayoutPage() {
     }
   };
 
+  const handleDragStart = (e: React.DragEvent, block: Block) => {
+    setDraggedBlock(block);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', ''); // Required for Firefox
+  };
+
+  const handleDragEnd = () => {
+    setDraggedBlock(null);
+    setDragOverPosition(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, col: number, row: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverPosition({ col, row });
+  };
+
+  const handleDrop = (e: React.DragEvent, newCol: number, newRow: number) => {
+    e.preventDefault();
+    if (!draggedBlock) return;
+
+    // Don't update if dropping in the same position
+    if (draggedBlock.position.col === newCol && draggedBlock.position.row === newRow) {
+      setDraggedBlock(null);
+      setDragOverPosition(null);
+      return;
+    }
+
+    // Update block position
+    updateBlockMutation.mutate({
+      id: draggedBlock.id,
+      position: {
+        ...draggedBlock.position,
+        col: newCol,
+        row: newRow,
+      }
+    });
+
+    setDraggedBlock(null);
+    setDragOverPosition(null);
+  };
+
+  const getGridPositionFromCoords = (layout: Layout, clientX: number, clientY: number, gridElement: HTMLElement) => {
+    const rect = gridElement.getBoundingClientRect();
+    const relativeX = clientX - rect.left;
+    const relativeY = clientY - rect.top;
+    
+    const columnWidth = rect.width / layout.gridConfig.columns;
+    const rowHeight = 60; // Estimated row height
+    
+    const col = Math.max(1, Math.min(layout.gridConfig.columns, Math.ceil(relativeX / columnWidth)));
+    const row = Math.max(1, Math.ceil(relativeY / rowHeight));
+    
+    return { col, row };
+  };
+
   const currentLayout = layouts.find((l: Layout) => l.id === selectedLayout);
   const layoutMessages = messages.filter((msg: any) => msg.appType === 'layout');
 
   const renderGridPreview = (layout: Layout) => {
     const layoutBlocks = (blocks as Block[]).filter((b: Block) => b.layoutId === layout.id);
     
+    // Create drop zones for empty grid positions
+    const maxRow = Math.max(...layoutBlocks.map(b => b.position.row), 3);
+    const dropZones = [];
+    for (let row = 1; row <= maxRow + 1; row++) {
+      for (let col = 1; col <= layout.gridConfig.columns; col++) {
+        const hasBlock = layoutBlocks.some(b => 
+          b.position.col === col && b.position.row === row
+        );
+        if (!hasBlock) {
+          dropZones.push({ col, row });
+        }
+      }
+    }
+
     return (
       <div 
-        className="grid gap-2 bg-gray-50 p-4 rounded-lg min-h-32"
+        className="grid gap-2 bg-gray-50 p-4 rounded-lg min-h-32 relative"
         style={{
           gridTemplateColumns: `repeat(${layout.gridConfig.columns}, 1fr)`,
           gap: `${layout.gridConfig.gap || 16}px`,
         }}
+        onDragOver={(e) => e.preventDefault()}
       >
         {layoutBlocks.map((block: Block) => {
           const blockType = blockTypes.find(t => t.id === block.type);
@@ -214,19 +286,28 @@ export default function LayoutPage() {
           return (
             <div
               key={block.id}
+              draggable
               className={cn(
-                "bg-white border-2 border-dashed border-gray-300 rounded p-2 flex items-center justify-center text-sm transition-all hover:border-blue-400 cursor-pointer relative group",
-                blockType?.color || 'bg-gray-100'
+                "bg-white border-2 border-dashed border-gray-300 rounded p-2 flex items-center justify-center text-sm transition-all hover:border-blue-400 cursor-move relative group select-none",
+                blockType?.color || 'bg-gray-100',
+                draggedBlock?.id === block.id && "opacity-50 scale-105"
               )}
               style={{
                 gridColumn: `${block.position.col} / span ${block.position.colSpan || 1}`,
                 gridRow: `${block.position.row} / span ${block.position.rowSpan || 1}`,
               }}
+              onDragStart={(e) => handleDragStart(e, block)}
+              onDragEnd={handleDragEnd}
               onClick={() => handleBlockClick(block)}
             >
               <div className="text-center">
                 <Icon className="w-4 h-4 mx-auto mb-1" />
                 <div className="text-xs">{blockType?.label}</div>
+                {draggedBlock?.id === block.id && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-blue-100 bg-opacity-75 rounded">
+                    <div className="text-xs text-blue-600 font-medium">Dragging...</div>
+                  </div>
+                )}
               </div>
               
               {/* Block actions - visible on hover */}
@@ -239,12 +320,60 @@ export default function LayoutPage() {
                     e.stopPropagation();
                     handleDeleteBlock(block.id);
                   }}
+                  onDragStart={(e) => e.stopPropagation()}
                   title="Delete block"
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>
               </div>
             </div>
+          );
+        })}
+        
+        {/* Drop zones for empty positions */}
+        {draggedBlock && dropZones.map(({ col, row }) => (
+          <div
+            key={`drop-${col}-${row}`}
+            className={cn(
+              "border-2 border-transparent rounded transition-all min-h-12 flex items-center justify-center",
+              dragOverPosition?.col === col && dragOverPosition?.row === row 
+                ? "border-blue-400 border-dashed bg-blue-50" 
+                : "border-gray-200 border-dashed opacity-60"
+            )}
+            style={{
+              gridColumn: `${col} / span 1`,
+              gridRow: `${row} / span 1`,
+            }}
+            onDragOver={(e) => handleDragOver(e, col, row)}
+            onDrop={(e) => handleDrop(e, col, row)}
+          >
+            {dragOverPosition?.col === col && dragOverPosition?.row === row && (
+              <div className="text-xs text-blue-600 font-medium">Drop here</div>
+            )}
+          </div>
+        ))}
+        
+        {/* Also allow dropping on existing blocks to swap positions */}
+        {layoutBlocks.map((block: Block) => {
+          if (draggedBlock?.id === block.id) return null;
+          
+          return (
+            <div
+              key={`overlay-${block.id}`}
+              className={cn(
+                "absolute pointer-events-none transition-all",
+                dragOverPosition?.col === block.position.col && dragOverPosition?.row === block.position.row && draggedBlock
+                  ? "border-2 border-yellow-400 border-dashed bg-yellow-50 bg-opacity-75 rounded"
+                  : ""
+              )}
+              style={{
+                gridColumn: `${block.position.col} / span ${block.position.colSpan || 1}`,
+                gridRow: `${block.position.row} / span ${block.position.rowSpan || 1}`,
+                pointerEvents: draggedBlock ? 'auto' : 'none',
+              }}
+              onDragOver={(e) => draggedBlock && handleDragOver(e, block.position.col, block.position.row)}
+              onDrop={(e) => draggedBlock && handleDrop(e, block.position.col, block.position.row)}
+            />
           );
         })}
       </div>
