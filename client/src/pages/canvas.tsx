@@ -30,6 +30,8 @@ export default function CanvasPage() {
 
   // Update canvas shapes when WebSocket shapes change
   React.useEffect(() => {
+    console.log('Canvas page received shapes update:', shapes.length, 'shapes');
+    console.log('Shape details:', shapes);
     setShapes(shapes);
   }, [shapes, setShapes]);
 

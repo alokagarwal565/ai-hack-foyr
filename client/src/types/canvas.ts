@@ -1,6 +1,6 @@
 export interface Shape {
   id: string;
-  type: 'rectangle' | 'circle' | 'line';
+  type: 'rectangle' | 'circle' | 'line' | 'triangle' | 'star';
   x: number;
   y: number;
   width?: number;
@@ -11,6 +11,7 @@ export interface Shape {
   color: string;
   strokeWidth: number;
   selected?: boolean;
+  style?: string; // For curved lines, etc.
 }
 
 export interface CanvasState {

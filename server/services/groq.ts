@@ -11,7 +11,7 @@ export interface CommandInterpretation {
   
   // Canvas shapes
   shapes?: Array<{
-    type: 'rectangle' | 'circle' | 'line';
+    type: 'rectangle' | 'circle' | 'line' | 'triangle' | 'star';
     x: number;
     y: number;
     width?: number;
@@ -20,6 +20,8 @@ export interface CommandInterpretation {
     x2?: number;
     y2?: number;
     color?: string;
+    strokeWidth?: number;
+    style?: string; // For curved lines, etc.
   }>;
   
   // Task operations
@@ -80,11 +82,13 @@ export class GroqService {
         systemPrompt = `You are an AI assistant for a drawing canvas application. Your job is to interpret user commands and convert them into specific drawing actions.
 
 Available actions:
-- draw: Create new shapes (rectangle, circle, line)
+- draw: Create new shapes (rectangle, circle, line, triangle, star)
 - delete: Remove specific shapes or all shapes
 - clear: Clear the entire canvas
 - modify: Change properties of existing shapes
 - select: Select shapes for further operations
+
+For face commands (smile, sad, happy, etc.), if the canvas has existing shapes, use the "clear" action first, then use "draw" action separately.
 
 Current canvas has ${context.shapes?.length || 0} shapes.
 
@@ -100,9 +104,66 @@ Respond with a JSON object containing:
 }
 
 Example shape objects:
-- Rectangle: {"type": "rectangle", "x": 100, "y": 100, "width": 50, "height": 30, "color": "#FF0000"}
-- Circle: {"type": "circle", "x": 200, "y": 150, "radius": 25, "color": "#00FF00"}
-- Line: {"type": "line", "x": 50, "y": 50, "x2": 150, "y2": 100, "color": "#0000FF"}`;
+- Rectangle: {"type": "rectangle", "x": 100, "y": 100, "width": 50, "height": 30, "color": "#FF0000", "strokeWidth": 2}
+- Circle: {"type": "circle", "x": 200, "y": 150, "radius": 25, "color": "#00FF00", "strokeWidth": 2}
+- Line: {"type": "line", "x": 50, "y": 50, "x2": 150, "y2": 100, "color": "#0000FF", "strokeWidth": 2}
+- Triangle: {"type": "triangle", "x": 100, "y": 100, "width": 60, "height": 60, "color": "#FF00FF", "strokeWidth": 2}
+- Star: {"type": "star", "x": 300, "y": 200, "radius": 40, "color": "#FFD700", "strokeWidth": 2}
+
+For complex drawings like faces, use multiple shapes with proper positioning:
+- Face outline: Large circle
+- Eyes: Two smaller circles positioned within the face
+- Mouth: A curved line (use style: "curve" for smiles)
+- Nose: A small rectangle or circle
+
+For facial expressions, use these structures:
+
+SMILEY FACE:
+- Face: {"type": "circle", "x": 300, "y": 250, "radius": 80, "color": "#FFFFFF", "strokeWidth": 2}
+- Left eye: {"type": "circle", "x": 270, "y": 220, "radius": 8, "color": "#000000", "strokeWidth": 2}
+- Right eye: {"type": "circle", "x": 330, "y": 220, "radius": 8, "color": "#000000", "strokeWidth": 2}
+- Smile: {"type": "line", "x": 250, "y": 280, "x2": 350, "y2": 280, "color": "#000000", "strokeWidth": 3, "style": "curve"}
+
+SAD FACE:
+- Face: {"type": "circle", "x": 300, "y": 250, "radius": 80, "color": "#FFFFFF", "strokeWidth": 2}
+- Left eye: {"type": "circle", "x": 270, "y": 220, "radius": 8, "color": "#000000", "strokeWidth": 2}
+- Right eye: {"type": "circle", "x": 330, "y": 220, "radius": 8, "color": "#000000", "strokeWidth": 2}
+- Sad mouth: {"type": "line", "x": 250, "y": 320, "x2": 350, "y2": 320, "color": "#000000", "strokeWidth": 3, "style": "curve"}
+
+NEUTRAL FACE:
+- Face: {"type": "circle", "x": 300, "y": 250, "radius": 80, "color": "#FFFFFF", "strokeWidth": 2}
+- Left eye: {"type": "circle", "x": 270, "y": 220, "radius": 8, "color": "#000000", "strokeWidth": 2}
+- Right eye: {"type": "circle", "x": 330, "y": 220, "radius": 8, "color": "#000000", "strokeWidth": 2}
+- Straight mouth: {"type": "line", "x": 250, "y": 300, "x2": 350, "y2": 300, "color": "#000000", "strokeWidth": 2}
+
+IMPORTANT: For sad faces, the mouth curve should go DOWNWARD (higher y values). For happy faces, the mouth curve goes UPWARD (lower y values).
+
+For stick figures:
+- Head: {"type": "circle", "x": 300, "y": 100, "radius": 20, "color": "#000000", "strokeWidth": 2}
+- Body: {"type": "line", "x": 300, "y": 120, "x2": 300, "y2": 200, "color": "#000000", "strokeWidth": 2}
+- Arms: {"type": "line", "x": 250, "y": 150, "x2": 350, "y2": 150, "color": "#000000", "strokeWidth": 2}
+- Legs: {"type": "line", "x": 300, "y": 200, "x2": 250, "y2": 250, "color": "#000000", "strokeWidth": 2} and {"type": "line", "x": 300, "y": 200, "x2": 350, "y2": 250, "color": "#000000", "strokeWidth": 2}
+
+For houses:
+- Main structure: {"type": "rectangle", "x": 200, "y": 200, "width": 200, "height": 150, "color": "#8B4513", "strokeWidth": 2}
+- Roof: {"type": "triangle", "x": 200, "y": 200, "width": 200, "height": 80, "color": "#A0522D", "strokeWidth": 2}
+- Door: {"type": "rectangle", "x": 280, "y": 280, "width": 40, "height": 70, "color": "#654321", "strokeWidth": 2}
+- Windows: {"type": "rectangle", "x": 220, "y": 220, "width": 30, "height": 30, "color": "#87CEEB", "strokeWidth": 2}
+
+For stars:
+- 5-pointed star: {"type": "star", "x": 300, "y": 200, "radius": 40, "color": "#FFD700", "strokeWidth": 2}
+
+IMPORTANT GUIDELINES:
+1. Always position shapes logically so they don't overlap inappropriately
+2. Use the full canvas space (800x600) and ensure proper spacing between related shapes
+3. For faces, use "clear" action first if canvas has shapes, then "draw" action separately
+4. Position eyes symmetrically within the face outline
+5. For sad faces, the mouth should curve DOWNWARD (higher y values)
+6. For happy faces, the mouth should curve UPWARD (lower y values)
+7. Use appropriate colors: white for face outline, black for features
+8. Ensure proper proportions: face should be larger than eyes, mouth should be appropriately sized
+9. Always use single actions: "draw", "clear", or "delete" - never combine them
+10. For curved lines, always include "style": "curve" property`;
       
       } else if (appType === 'tasks') {
         systemPrompt = `You are an AI assistant for a task management system. Your job is to interpret user commands and convert them into specific task operations.
@@ -186,15 +247,66 @@ Example layout objects:
           appType: appType,
         };
       } catch (parseError) {
-        // If JSON parsing fails, return a basic interpretation
-        return {
-          action: appType === 'canvas' ? 'draw' : appType === 'tasks' ? 'create_task' : 'create_layout',
-          shapes: [],
-          tasks: [],
-          message: response,
-          error: 'Could not parse command structure',
-          appType: appType,
-        };
+        // Attempt to parse multiple JSON blocks or JSON within code fences/comments
+        try {
+          const sanitized = sanitizeAiResponse(response);
+          const blocks = extractJsonBlocks(sanitized);
+
+          if (blocks.length > 0) {
+            // Merge actions and shapes in order
+            const actions: string[] = [];
+            const mergedShapes: any[] = [];
+            let lastMessage = '';
+
+            for (const block of blocks) {
+              if (!block || typeof block !== 'object') continue;
+              if (typeof block.action === 'string') actions.push(block.action);
+              if (Array.isArray(block.shapes)) mergedShapes.push(...block.shapes);
+              if (typeof block.message === 'string') lastMessage = block.message;
+            }
+
+            // If actions contain multiple entries like ["clear", "draw"], join with '|'
+            const action = actions.length > 0 ? actions.join('|') : (appType === 'canvas' ? 'draw' : 'create_task');
+
+            return {
+              action,
+              shapes: mergedShapes,
+              tasks: [],
+              layout: undefined,
+              filters: undefined,
+              message: lastMessage || 'Command processed',
+              appType,
+            };
+          }
+
+          // Last resort: try to find first JSON object and parse it
+          const first = findFirstJsonObject(sanitized);
+          if (first) {
+            const block = JSON.parse(first);
+            return {
+              action: block.action || (appType === 'canvas' ? 'draw' : 'create_task'),
+              shapes: block.shapes || [],
+              tasks: block.tasks || [],
+              layout: block.layout || undefined,
+              filters: block.filters || undefined,
+              message: block.message || 'Command processed',
+              appType,
+            };
+          }
+
+          // Could not extract JSON blocks
+          throw new Error('No JSON blocks found');
+        } catch (e) {
+          // If JSON parsing fails, return a basic interpretation
+          return {
+            action: appType === 'canvas' ? 'draw' : appType === 'tasks' ? 'create_task' : 'create_layout',
+            shapes: [],
+            tasks: [],
+            message: response,
+            error: 'Could not parse command structure',
+            appType: appType,
+          };
+        }
       }
     } catch (error) {
       console.error('Groq API error:', error);
@@ -222,6 +334,101 @@ Example layout objects:
       return '';
     }
   }
+}
+
+// --- Helper functions to robustly parse AI responses that may contain multiple JSON blocks,
+// code fences, and comments.
+
+function sanitizeAiResponse(text: string): string {
+  // Remove triple backtick code fences and language hints
+  let cleaned = text.replace(/```[a-zA-Z]*\n?/g, '');
+  cleaned = cleaned.replace(/```/g, '');
+  // Remove single-line comments // ...
+  cleaned = cleaned.replace(/(^|\n)\s*\/\/.*(?=\n|$)/g, '$1');
+  // Remove trailing commas before closing braces/brackets (best effort)
+  cleaned = cleaned.replace(/,\s*(\]|\})/g, '$1');
+  return cleaned.trim();
+}
+
+function extractJsonBlocks(text: string): any[] {
+  const blocks: any[] = [];
+  let i = 0;
+  while (i < text.length) {
+    // Find next opening brace
+    const start = text.indexOf('{', i);
+    if (start === -1) break;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let j = start; j < text.length; j++) {
+      const ch = text[j];
+      if (inString) {
+        if (escape) {
+          escape = false;
+        } else if (ch === '\\') {
+          escape = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+      } else {
+        if (ch === '"') inString = true;
+        else if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) {
+            const candidate = text.slice(start, j + 1);
+            try {
+              const obj = JSON.parse(candidate);
+              blocks.push(obj);
+              i = j + 1;
+              break;
+            } catch {
+              // Not a valid JSON block; continue scanning
+            }
+          }
+        }
+      }
+      if (j === text.length - 1) {
+        i = j + 1;
+      }
+    }
+    if (depth !== 0) break; // unbalanced braces
+  }
+  return blocks;
+}
+
+function findFirstJsonObject(text: string): string | null {
+  let i = 0;
+  while (i < text.length) {
+    const start = text.indexOf('{', i);
+    if (start === -1) return null;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let j = start; j < text.length; j++) {
+      const ch = text[j];
+      if (inString) {
+        if (escape) {
+          escape = false;
+        } else if (ch === '\\') {
+          escape = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+      } else {
+        if (ch === '"') inString = true;
+        else if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) {
+            return text.slice(start, j + 1);
+          }
+        }
+      }
+    }
+    i = start + 1;
+  }
+  return null;
 }
 
 export const groqService = GroqService.getInstance();

@@ -52,21 +52,29 @@ export function useWebSocket() {
   }, []);
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
+    console.log('WebSocket message received:', message.type, message);
+    
     switch (message.type) {
       case 'initial_state':
+        console.log('Setting initial state with shapes:', message.shapes?.length || 0);
         setShapes(message.shapes || []);
         setMessages(message.messages || []);
         break;
       case 'shapes_updated':
+        console.log('Updating shapes:', message.shapes?.length || 0);
+        console.log('Shape details:', message.shapes);
         setShapes(message.shapes || []);
         break;
       case 'shape_created':
+        console.log('Shape created:', message.shape);
         setShapes(prev => [...prev, message.shape]);
         break;
       case 'shape_deleted':
+        console.log('Shape deleted:', message.id);
         setShapes(prev => prev.filter(shape => shape.id !== message.id));
         break;
       case 'shapes_cleared':
+        console.log('All shapes cleared');
         setShapes([]);
         break;
       case 'chat_message':
@@ -102,7 +110,8 @@ export function useWebSocket() {
         queryClient.invalidateQueries({ queryKey: ['/api/layouts'] });
         break;
       case 'command_executed':
-        // Handle command execution updates
+        console.log('Command executed:', message.interpretation);
+        // The shapes_updated message should follow this, so we don't need to do anything here
         break;
       default:
         console.log('Unknown message type:', message.type);
