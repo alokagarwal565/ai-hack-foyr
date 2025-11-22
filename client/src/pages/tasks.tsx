@@ -24,7 +24,8 @@ import {
   Send,
   Filter,
   Brain,
-  Edit
+  Edit,
+  RotateCcw
 } from "lucide-react";
 
 interface Task {
@@ -125,6 +126,15 @@ export default function TasksPage() {
     if (chatInput.trim()) {
       sendChatMessage(chatInput.trim(), 'tasks');
       setChatInput('');
+    }
+  };
+
+  const handleClearChat = async () => {
+    try {
+      await fetch('/api/chat-messages?appType=tasks', { method: 'DELETE' });
+      queryClient.invalidateQueries({ queryKey: ['/api/chat-messages', { appType: 'tasks' }] });
+    } catch (error) {
+      console.error('Failed to clear chat:', error);
     }
   };
 
@@ -352,6 +362,15 @@ export default function TasksPage() {
                     {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="p-2"
+                  onClick={handleClearChat}
+                  title="Clear Chat"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 

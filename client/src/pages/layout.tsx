@@ -25,7 +25,8 @@ import {
   Edit,
   Move,
   Trash2,
-  Copy
+  Copy,
+  RotateCcw
 } from "lucide-react";
 
 interface Layout {
@@ -180,6 +181,15 @@ export default function LayoutPage() {
     if (chatInput.trim()) {
       sendChatMessage(chatInput.trim(), 'layout');
       setChatInput('');
+    }
+  };
+
+  const handleClearChat = async () => {
+    try {
+      await fetch('/api/chat-messages?appType=layout', { method: 'DELETE' });
+      queryClient.invalidateQueries({ queryKey: ['/api/chat-messages', { appType: 'layout' }] });
+    } catch (error) {
+      console.error('Failed to clear chat:', error);
     }
   };
 
@@ -617,6 +627,15 @@ export default function LayoutPage() {
                     {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="p-2"
+                  onClick={handleClearChat}
+                  title="Clear Chat"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 
