@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, jsonb, timestamp, real, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, jsonb, timestamp, real, boolean, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,6 +23,10 @@ export const shapes = pgTable("shapes", {
   strokeWidth: real("stroke_width").notNull().default(2),
   createdAt: timestamp("created_at").defaultNow(),
   userId: varchar("user_id"),
+}, (table) => {
+  return {
+    userIdIdx: index("shapes_user_id_idx").on(table.userId),
+  };
 });
 
 export const canvasState = pgTable("canvas_state", {
@@ -40,6 +44,11 @@ export const chatMessages = pgTable("chat_messages", {
   timestamp: timestamp("timestamp").defaultNow(),
   processed: boolean("processed").default(false),
   appType: text("app_type").notNull().default('canvas'), // 'canvas', 'tasks', 'layout'
+}, (table) => {
+  return {
+    timestampIdx: index("chat_messages_timestamp_idx").on(table.timestamp),
+    appTypeIdx: index("chat_messages_app_type_idx").on(table.appType),
+  };
 });
 
 // Task Management System Tables
@@ -55,6 +64,10 @@ export const tasks = pgTable("tasks", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   userId: varchar("user_id"),
+}, (table) => {
+  return {
+    userIdIdx: index("tasks_user_id_idx").on(table.userId),
+  };
 });
 
 export const taskLists = pgTable("task_lists", {
@@ -92,7 +105,7 @@ export const blocks = pgTable("blocks", {
 
 export const appStates = pgTable("app_states", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  appType: text("app_type").notNull(), // 'canvas', 'tasks', 'layout'
+  appType: text("app_type").notNull().unique(), // 'canvas', 'tasks', 'layout'
   state: jsonb("state").notNull(),
   mode: text("mode").notNull().default('manual'), // 'manual' or 'ai'
   lastCommand: text("last_command"),
@@ -101,78 +114,79 @@ export const appStates = pgTable("app_states", {
 });
 
 // Zod schemas
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+
+
+
+// Zod Schemas with strict validation
+export const insertUserSchema = createInsertSchema(users).extend({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-export const insertShapeSchema = createInsertSchema(shapes).omit({
-  id: true,
-  createdAt: true,
+export const insertShapeSchema = createInsertSchema(shapes).extend({
+  type: z.enum(['rectangle', 'circle', 'line', 'triangle', 'star']),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive().optional(),
+  height: z.number().positive().optional(),
+  radius: z.number().positive().optional(),
+  x2: z.number().optional(),
+  y2: z.number().optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color code"),
+  strokeWidth: z.number().min(1).max(20).default(2),
+  rotation: z.number().default(0),
 });
 
-export const insertCanvasStateSchema = createInsertSchema(canvasState).omit({
-  id: true,
-  updatedAt: true,
+export const insertCanvasStateSchema = createInsertSchema(canvasState);
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).extend({
+  content: z.string().min(1, "Message cannot be empty"),
+  appType: z.enum(['canvas', 'tasks', 'layout']).default('canvas'),
 });
 
-export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
-  id: true,
-  timestamp: true,
+export const insertTaskSchema = createInsertSchema(tasks).extend({
+  title: z.string().min(1, "Title is required"),
+  priority: z.enum(['low', 'medium', 'high']).default('medium'),
+  dueDate: z.coerce.date().optional(), // Allow string to date coercion
 });
 
-export const insertTaskSchema = createInsertSchema(tasks).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertTaskListSchema = createInsertSchema(taskLists);
+
+export const insertLayoutSchema = createInsertSchema(layouts).extend({
+  name: z.string().min(1, "Layout name is required"),
 });
 
-export const insertTaskListSchema = createInsertSchema(taskLists).omit({
-  id: true,
-  createdAt: true,
+export const insertBlockSchema = createInsertSchema(blocks).extend({
+  type: z.string().min(1, "Block type is required"),
+  layoutId: z.string().uuid(),
 });
 
-export const insertLayoutSchema = createInsertSchema(layouts).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertBlockSchema = createInsertSchema(blocks).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertAppStateSchema = createInsertSchema(appStates).omit({
-  id: true,
-  updatedAt: true,
-});
+export const insertAppStateSchema = createInsertSchema(appStates);
 
 // Types
-export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 
-export type InsertShape = z.infer<typeof insertShapeSchema>;
 export type Shape = typeof shapes.$inferSelect;
+export type InsertShape = z.infer<typeof insertShapeSchema>;
 
-export type InsertCanvasState = z.infer<typeof insertCanvasStateSchema>;
 export type CanvasState = typeof canvasState.$inferSelect;
+export type InsertCanvasState = z.infer<typeof insertCanvasStateSchema>;
 
-export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 
-export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
 
-export type InsertTaskList = z.infer<typeof insertTaskListSchema>;
 export type TaskList = typeof taskLists.$inferSelect;
+export type InsertTaskList = z.infer<typeof insertTaskListSchema>;
 
-export type InsertLayout = z.infer<typeof insertLayoutSchema>;
 export type Layout = typeof layouts.$inferSelect;
+export type InsertLayout = z.infer<typeof insertLayoutSchema>;
 
-export type InsertBlock = z.infer<typeof insertBlockSchema>;
 export type Block = typeof blocks.$inferSelect;
+export type InsertBlock = z.infer<typeof insertBlockSchema>;
 
-export type InsertAppState = z.infer<typeof insertAppStateSchema>;
 export type AppState = typeof appStates.$inferSelect;
+export type InsertAppState = z.infer<typeof insertAppStateSchema>;

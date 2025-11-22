@@ -80,6 +80,9 @@ export class GroqService {
       let systemPrompt = '';
       
       if (appType === 'canvas') {
+        const shapeCount = context.shapesCount ?? context.shapes?.length ?? 0;
+        const shapeSummary = context.shapesSummary ? `\nExisting shapes summary: ${context.shapesSummary}` : '';
+        
         systemPrompt = `You are an AI assistant for a drawing canvas application. Your job is to interpret user commands and convert them into specific drawing actions.
 
 Available actions:
@@ -91,7 +94,7 @@ Available actions:
 
 For face commands (smile, sad, happy, etc.), if the canvas has existing shapes, use the "clear" action first, then use "draw" action separately.
 
-Current canvas has ${context.shapes?.length || 0} shapes.
+Current canvas has ${shapeCount} shapes.${shapeSummary}
 
 For drawing commands, provide coordinates and dimensions. Use a 800x600 canvas size as reference.
 For colors, use hex format (#RRGGBB).
@@ -228,6 +231,7 @@ Example layout objects:
         ],
         temperature: 0.3,
         max_tokens: 1500,
+        response_format: { type: "json_object" } // Force JSON output
       });
 
       const response = completion.choices[0]?.message?.content;
@@ -266,11 +270,10 @@ Example layout objects:
               if (typeof block.message === 'string') lastMessage = block.message;
             }
 
-            // If actions contain multiple entries like ["clear", "draw"], join with '|'
             const action = actions.length > 0 ? actions.join('|') : (appType === 'canvas' ? 'draw' : 'create_task');
 
             return {
-              action,
+              action: action as any, // Allow compound actions like "clear|draw"
               shapes: mergedShapes,
               tasks: [],
               layout: undefined,
@@ -298,6 +301,7 @@ Example layout objects:
           // Could not extract JSON blocks
           throw new Error('No JSON blocks found');
         } catch (e) {
+          console.error('JSON parsing failed:', e);
           // If JSON parsing fails, return a basic interpretation
           return {
             action: appType === 'canvas' ? 'draw' : appType === 'tasks' ? 'create_task' : 'create_layout',
@@ -325,7 +329,7 @@ Example layout objects:
   async transcribeAudio(audioBuffer: Buffer): Promise<string> {
     try {
       const transcription = await groq.audio.transcriptions.create({
-        file: new File([audioBuffer], 'audio.wav', { type: 'audio/wav' }),
+        file: new File([new Uint8Array(audioBuffer)], 'audio.wav', { type: 'audio/wav' }),
         model: 'whisper-large-v3-turbo',
       });
 

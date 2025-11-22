@@ -66,7 +66,8 @@ export function useWebSocket() {
         setShapes(message.shapes || []);
         break;
       case 'shape_created':
-        console.log('Shape created:', message.shape);
+      case 'shape_added':
+        console.log('Shape created/added:', message.shape);
         setShapes(prev => [...prev, message.shape]);
         break;
       case 'shape_deleted':
