@@ -1,12 +1,14 @@
 import React from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCanvas } from '@/hooks/use-canvas';
-import { useWebSocket } from '@/hooks/use-websocket';
+import { useWebSocketContext } from '@/hooks/websocket-provider';
 import { ToolSidebar } from '@/components/canvas/tool-sidebar';
 import { DrawingCanvas } from '@/components/canvas/drawing-canvas';
 import { AIControlPanel } from '@/components/canvas/ai-control-panel';
 import { Button } from '@/components/ui/button';
 
 export default function CanvasPage() {
+  const queryClient = useQueryClient();
   const {
     canvasRef,
     canvasState,
@@ -23,10 +25,31 @@ export default function CanvasPage() {
   const {
     connected,
     shapes,
-    messages,
+    messages: wsMessages,
     sendChatMessage,
     sendVoiceData,
-  } = useWebSocket();
+  } = useWebSocketContext();
+
+  // Load canvas-specific messages from REST API
+  const { data: apiMessages = [] } = useQuery({
+    queryKey: ['/api/chat-messages', { appType: 'canvas' }],
+    queryFn: async () => {
+      const response = await fetch('/api/chat-messages?appType=canvas');
+      return response.json();
+    },
+  });
+
+  // Merge API messages with WebSocket messages (deduplicate by ID)
+  const messages = React.useMemo(() => {
+    const messageMap = new Map();
+    // Add API messages first
+    apiMessages.forEach((msg: any) => messageMap.set(msg.id, msg));
+    // Add/update with WebSocket messages
+    wsMessages.filter((msg: any) => msg.appType === 'canvas').forEach((msg: any) => messageMap.set(msg.id, msg));
+    return Array.from(messageMap.values()).sort((a: any, b: any) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  }, [apiMessages, wsMessages]);
 
   // Update canvas shapes when WebSocket shapes change
   React.useEffect(() => {
@@ -37,7 +60,8 @@ export default function CanvasPage() {
 
   const handleClearChat = async () => {
     try {
-      await fetch('/api/chat-messages', { method: 'DELETE' });
+      await fetch('/api/chat-messages?appType=canvas', { method: 'DELETE' });
+      queryClient.invalidateQueries({ queryKey: ['/api/chat-messages', { appType: 'canvas' }] });
     } catch (error) {
       console.error('Failed to clear chat:', error);
     }

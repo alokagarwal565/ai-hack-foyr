@@ -58,7 +58,8 @@ export function useWebSocket() {
       case 'initial_state':
         console.log('Setting initial state with shapes:', message.shapes?.length || 0);
         setShapes(message.shapes || []);
-        setMessages(message.messages || []);
+        // Don't reset messages - they should be loaded via REST API per module
+        // setMessages(message.messages || []); // REMOVED - this was clearing messages
         break;
       case 'shapes_updated':
         console.log('Updating shapes:', message.shapes?.length || 0);
@@ -78,11 +79,22 @@ export function useWebSocket() {
         console.log('All shapes cleared');
         setShapes([]);
         break;
-      case 'chat_message':
-        setMessages(prev => [...prev, {
+      case 'chat_message': {
+        const incoming = {
           ...message.message,
           timestamp: new Date(message.message.timestamp)
-        }]);
+        } as any;
+        setMessages(prev => [...prev, incoming]);
+        // Update or invalidate specific chat query cache so remount shows latest
+        const appType = incoming.appType;
+        // Try optimistic append
+        queryClient.setQueryData(['/api/chat-messages', { appType }], (old: any) => {
+          if (!old) return [incoming];
+          const exists = old.some((m: any) => m.id === incoming.id);
+          return exists ? old : [...old, incoming];
+        });
+        break;
+      }
         break;
       case 'layout_created':
         // Invalidate layout queries to refresh the UI

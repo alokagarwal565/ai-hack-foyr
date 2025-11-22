@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useWebSocket } from '@/hooks/use-websocket';
+import { useWebSocketContext } from '@/hooks/websocket-provider';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { apiRequest } from '@/lib/queryClient';
 import { cn } from "@/lib/utils";
@@ -54,17 +54,39 @@ export default function TasksPage() {
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false);
   
   const queryClient = useQueryClient();
-  const { connected, messages, sendChatMessage, sendVoiceData } = useWebSocket();
+  const { connected, messages: wsMessages, sendChatMessage, sendVoiceData } = useWebSocketContext();
   const { isRecording, isSupported, toggleRecording, setOnVoiceData } = useVoiceInput();
 
   useEffect(() => {
     setOnVoiceData((audioData: string) => sendVoiceData(audioData, 'tasks'));
   }, [sendVoiceData, setOnVoiceData]);
 
-  const { data: tasks = [], refetch } = useQuery({
+  const { data: tasks = [], refetch } = useQuery<Task[]>({
     queryKey: ['/api/tasks'],
     refetchInterval: 2000,
   });
+
+  // Load task-specific messages from REST API
+  const { data: apiMessages = [] } = useQuery({
+    queryKey: ['/api/chat-messages', { appType: 'tasks' }],
+    queryFn: async () => {
+      const response = await fetch('/api/chat-messages?appType=tasks');
+      return response.json();
+    },
+  });
+
+  // Merge API messages with WebSocket messages (deduplicate by ID)
+  const taskMessages = React.useMemo(() => {
+    const messageMap = new Map();
+    // Add API messages first
+    apiMessages.forEach((msg: any) => messageMap.set(msg.id, msg));
+    // Add/update with WebSocket messages (filter by appType)
+    wsMessages.filter((msg: any) => msg.appType === 'tasks')
+      .forEach((msg: any) => messageMap.set(msg.id, msg));
+    return Array.from(messageMap.values()).sort((a: any, b: any) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  }, [apiMessages, wsMessages]);
 
   const createTaskMutation = useMutation({
     mutationFn: (task: any) => apiRequest('POST', '/api/tasks', task),
@@ -118,8 +140,6 @@ export default function TasksPage() {
     active: tasks.filter((t: Task) => !t.completed).length,
     highPriority: tasks.filter((t: Task) => t.priority === 'high' && !t.completed).length,
   };
-
-  const taskMessages = messages.filter(msg => msg.appType === 'tasks');
 
   return (
     <div className="flex h-full bg-slate-50">

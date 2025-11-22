@@ -5,7 +5,8 @@ import { groqService } from "../services/groq";
 
 export const getChatMessages = async (req: Request, res: Response) => {
   try {
-    const messages = await storage.getChatMessages();
+    const appType = req.query.appType as string | undefined;
+    const messages = await storage.getChatMessages(undefined, appType);
     res.json(messages);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch chat messages' });
@@ -44,5 +45,15 @@ export const transcribeVoice = async (req: Request, res: Response) => {
     res.json({ transcription });
   } catch (error) {
     res.status(500).json({ error: 'Failed to transcribe audio' });
+  }
+};
+
+export const clearChatMessages = async (req: Request, res: Response) => {
+  try {
+    const appType = req.query.appType as string | undefined;
+    await storage.clearChatMessages(appType);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clear chat messages' });
   }
 };

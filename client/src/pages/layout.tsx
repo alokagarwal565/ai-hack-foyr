@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useWebSocket } from '@/hooks/use-websocket';
+import { useWebSocketContext } from '@/hooks/websocket-provider';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { apiRequest } from '@/lib/queryClient';
 import { cn } from "@/lib/utils";
@@ -73,7 +73,7 @@ export default function LayoutPage() {
   const [dragOverPosition, setDragOverPosition] = useState<{col: number, row: number} | null>(null);
   
   const queryClient = useQueryClient();
-  const { connected, messages, sendChatMessage, sendVoiceData } = useWebSocket();
+  const { connected, messages: wsMessages, sendChatMessage, sendVoiceData } = useWebSocketContext();
   const { isRecording, isSupported, toggleRecording, setOnVoiceData } = useVoiceInput();
 
   useEffect(() => {
@@ -250,8 +250,23 @@ export default function LayoutPage() {
     return { col, row };
   };
 
+  // Load layout-specific messages from REST API so they persist across navigation
+  const { data: apiMessages = [] } = useQuery({
+    queryKey: ['/api/chat-messages', { appType: 'layout' }],
+    queryFn: async () => {
+      const response = await fetch('/api/chat-messages?appType=layout');
+      return response.json();
+    },
+  });
+
   const currentLayout = layouts.find((l: Layout) => l.id === selectedLayout);
-  const layoutMessages = messages.filter((msg: any) => msg.appType === 'layout');
+  // Merge persisted API messages with live WebSocket messages (filter by appType) and sort chronologically
+  const layoutMessages = React.useMemo(() => {
+    const map = new Map();
+    apiMessages.forEach((m: any) => map.set(m.id, m));
+    wsMessages.filter((m: any) => m.appType === 'layout').forEach((m: any) => map.set(m.id, m));
+    return Array.from(map.values()).sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [apiMessages, wsMessages]);
 
   const renderGridPreview = (layout: Layout) => {
     const layoutBlocks = (blocks as Block[]).filter((b: Block) => b.layoutId === layout.id);

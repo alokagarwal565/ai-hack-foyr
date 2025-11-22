@@ -372,14 +372,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function sendCanvasState(ws: WebSocket) {
     const shapes = await storage.getShapes();
-    // const canvasState = await storage.getCanvasState(); // Removed usage
-    const messages = await storage.getChatMessages(20);
+    // Note: Messages are NOT sent in initial state anymore
+    // Each module (canvas/tasks/layout) should fetch its own messages via REST API
+    // This prevents cross-module chat message leakage
 
     ws.send(JSON.stringify({
       type: 'initial_state',
       shapes,
-      // canvasState, // Removed
-      messages,
+      messages: [], // Empty array - modules load their own messages
     }));
   }
 
@@ -392,6 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/chat-messages', ChatController.getChatMessages);
   app.post('/api/chat-messages', ChatController.createChatMessage);
+  app.delete('/api/chat-messages', ChatController.clearChatMessages);
   app.post('/api/voice-transcribe', upload.single('audio'), ChatController.transcribeVoice);
 
   app.get('/api/tasks', TasksController.getTasks);
