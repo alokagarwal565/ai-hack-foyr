@@ -396,6 +396,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/voice-transcribe', upload.single('audio'), ChatController.transcribeVoice);
 
   app.get('/api/tasks', TasksController.getTasks);
+  app.post('/api/tasks', TasksController.createTask);
+  app.patch('/api/tasks/:id', TasksController.updateTask);
+  app.delete('/api/tasks/:id', TasksController.deleteTask);
 
   return httpServer;
 }
